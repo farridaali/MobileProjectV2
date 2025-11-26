@@ -28,4 +28,6 @@ interface GroceryDao {
     @Query("SELECT SUM(quantity*price) FROM grocery_items")
     suspend fun getTotalCost(): Double?
 
+    @Query("SELECT * FROM grocery_items WHERE id = :itemId")
+    suspend fun getItemById(itemId: Int):ItemEntity
 }

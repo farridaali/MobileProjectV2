@@ -1,17 +1,24 @@
 package com.example.mobileprojectv2
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.mobileprojectv2.ui.theme.MobileProjectV2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,153 +29,138 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         db = GroceryDatabase.getInstance(this)
-
         enableEdgeToEdge()
+
         setContent {
             MobileProjectV2Theme {
-
                 GroceryListScreen(db)
-
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroceryListScreen(db: GroceryDatabase) {
-
     var itemsList by remember { mutableStateOf(listOf<ItemEntity>()) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    // New state for showing Add Item dialog
-    var showAddDialog by remember { mutableStateOf(false) }
-
+    // Load items from DB
     LaunchedEffect(Unit) {
         scope.launch(Dispatchers.IO) {
-            val itemsFromDb = db.GroceryDao().getAllItems()
-            itemsList = itemsFromDb
+            itemsList = db.GroceryDao().getAllItems()
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Grocery List", fontSize = 22.sp) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF6200EE)
+                )
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                context.startActivity(
+                    Intent(context, AddUpdateItemActivity::class.java)
+                )
+            }) {
+                Text("+", fontSize = 24.sp)
+            }
+        },
+        content = { padding ->
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(Color(0xFFF2F2F2))
+            ) {
 
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(itemsList, key = { it.id }) { item ->
-                Row(
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(itemsList, key = { it.id }) { item ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable {
+                                    val intent = Intent(context, AddUpdateItemActivity::class.java)
+                                    intent.putExtra("itemId", item.id)
+                                    context.startActivity(intent)
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = item.name, fontSize = 20.sp, color = Color(0xFF333333))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Qty: ${item.quantity}, Price: ${item.price} EGP",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                    Text(
+                                        text = "Total: ${item.quantity * item.price} EGP",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                }
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Checkbox(
+                                        checked = item.isBought,
+                                        onCheckedChange = { isChecked ->
+                                            scope.launch(Dispatchers.IO) {
+                                                val updatedItem = item.copy(isBought = isChecked)
+                                                db.GroceryDao().updateItem(updatedItem)
+                                                itemsList = db.GroceryDao().getAllItems()
+                                            }
+                                        },
+                                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFF6200EE))
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Button(
+                                        onClick = {
+                                            scope.launch(Dispatchers.IO) {
+                                                db.GroceryDao().deleteItem(item)
+                                                itemsList = db.GroceryDao().getAllItems()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Delete", fontSize = 12.sp, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val total = itemsList.sumOf { it.quantity * it.price }
+                Text(
+                    text = "Total Cost: $total EGP",
+                    fontSize = 20.sp,
+                    color = Color(0xFF6200EE),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
-                        .clickable {
-                            scope.launch(Dispatchers.IO) {
-                                val updatedItem = item.copy(isBought = !item.isBought)
-                                db.GroceryDao().updateItem(updatedItem)
-                                itemsList = db.GroceryDao().getAllItems()
-                            }
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(text = item.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = "Quantity: ${item.quantity}, Price: ${item.price} EGP",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = "Total: ${item.quantity * item.price} EGP",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "Bought: ${if (item.isBought) "Yes" else "No"}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
-                    Button(onClick = {
-                        scope.launch(Dispatchers.IO) {
-                            db.GroceryDao().deleteItem(item)
-                            itemsList = db.GroceryDao().getAllItems()
-                        }
-                    }) {
-                        Text("Delete")
-                    }
-                }
+                )
             }
         }
-
-        // Total cost at bottom
-        val total = itemsList.sumOf { it.quantity * it.price }
-        Text(
-            text = "Total: $total EGP",
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        // ➊ Add Item button
-        Button(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text("Add Item")
-        }
-
-        // ➋ Add Item Dialog
-        if (showAddDialog) {
-            var name by remember { mutableStateOf("") }
-            var quantity by remember { mutableStateOf("") }
-            var price by remember { mutableStateOf("") }
-
-            AlertDialog(
-                onDismissRequest = { showAddDialog = false },
-                title = { Text("Add New Item") },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = { Text("Name") }
-                        )
-                        OutlinedTextField(
-                            value = quantity,
-                            onValueChange = { quantity = it },
-                            label = { Text("Quantity") }
-                        )
-                        OutlinedTextField(
-                            value = price,
-                            onValueChange = { price = it },
-                            label = { Text("Price") }
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        scope.launch(Dispatchers.IO) {
-                            val newItem = ItemEntity(
-                                id = 0, // Auto-generated by Room
-                                name = name,
-                                quantity = quantity.toIntOrNull() ?: 1,
-                                price = price.toDoubleOrNull() ?: 0.0,
-                                isBought = false
-                            )
-                            db.GroceryDao().insertItem(newItem)
-                            itemsList = db.GroceryDao().getAllItems()
-                        }
-                        showAddDialog = false
-                    }) {
-                        Text("Add")
-                    }
-                },
-                dismissButton = {
-                    Button(onClick = { showAddDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-    }
+    )
 }
