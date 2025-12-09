@@ -90,7 +90,7 @@ fun GroceryListScreen(db: GroceryDatabase) {
     }
 
     // Calculate totals
-    val totalCost = itemsList.sumOf { it.quantity * it.price }
+    val totalCost = calculateTotalCost(itemsList)
     val remainingCost = itemsList.filter { !it.isBought }.sumOf { it.quantity * it.price }
     val boughtCount = itemsList.count { it.isBought }
 
