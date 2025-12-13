@@ -74,20 +74,20 @@ fun GroceryListScreen(db: GroceryDatabase) {
     }
 
     // Add lifecycle observer to refresh when returning to this screen
-    DisposableEffect(Unit) {
-        val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                refreshItems()
-            }
-        }
-
-        val lifecycle = (context as ComponentActivity).lifecycle
-        lifecycle.addObserver(lifecycleObserver)
-
-        onDispose {
-            lifecycle.removeObserver(lifecycleObserver)
-        }
-    }
+//    DisposableEffect(Unit) {
+//        val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
+//            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+//                refreshItems()
+//            }
+//        }
+//
+//        val lifecycle = (context as ComponentActivity).lifecycle
+//        lifecycle.addObserver(lifecycleObserver)
+//
+//        onDispose {
+//            lifecycle.removeObserver(lifecycleObserver)
+//        }
+//    }
 
     // Calculate totals
     val totalCost = calculateTotalCost(itemsList)
@@ -295,20 +295,19 @@ fun SummaryCard(
                     tint = color,
                     modifier = Modifier.size(24.dp)
                 )
-                Column {
-                    Text(
-                        text = title,
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = value,
-                        fontSize = 18.sp,
-                        color = Color(0xFF1f2937),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = title,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = value,
+                    fontSize = 18.sp,
+                    color = Color(0xFF1f2937),
+                    fontWeight = FontWeight.Bold
+                )
+
             }
         }
     }
@@ -329,8 +328,7 @@ fun GroceryItemCard(
             .fillMaxWidth()
             .shadow(2.dp, RoundedCornerShape(16.dp))
             .clickable(onClick = onItemClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
+            colors = CardDefaults.cardColors(
             containerColor = if (item.isBought) Color(0xFFF0FDF4) else Color.White
         )
     ) {

@@ -1,5 +1,4 @@
 package com.example.mobileprojectv2
-
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -37,9 +36,7 @@ class AddUpdateItemActivity : ComponentActivity() {
 
         setContent {
             MobileProjectV2Theme {
-                AddUpdateItemScreen(db, itemId) {
-                    finish()
-                }
+                AddUpdateItemScreen(db, itemId ,{ finish() })
             }
         }
     }
@@ -57,7 +54,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
     val isUpdateMode = itemId != -1
 
     LaunchedEffect(itemId) {
-        if (itemId != -1) {
+        if (isUpdateMode) {
             scope.launch(Dispatchers.IO) {
                 val item = db.GroceryDao().getItemById(itemId)
                 name = item.name
@@ -175,8 +172,6 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
                     cursorColor = Color(0xFF667eea),
                     focusedBorderColor = Color(0xFF667eea),
                     unfocusedBorderColor = Color(0xFFd1d5db),
@@ -201,8 +196,6 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
                     cursorColor = Color(0xFF667eea),
                     focusedBorderColor = Color(0xFF667eea),
                     unfocusedBorderColor = Color(0xFFd1d5db),
@@ -278,7 +271,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                                 db.GroceryDao().updateItem(updatedItem)
                             }
                             // Small delay to ensure database write is complete
-                            kotlinx.coroutines.delay(100)
+                            //kotlinx.coroutines.delay(100)
 
                             launch(Dispatchers.Main) {
                                 Toast.makeText(
@@ -319,12 +312,12 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else {
+//                    if (isLoading) {
+//                        CircularProgressIndicator(
+//                            color = Color.White,
+//                            modifier = Modifier.size(24.dp)
+//                        )
+//                    } else {
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
@@ -342,7 +335,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                    }
+
                 }
             }
         }
