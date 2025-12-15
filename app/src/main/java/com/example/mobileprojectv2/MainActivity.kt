@@ -32,6 +32,7 @@ import com.example.mobileprojectv2.ui.theme.MobileProjectV2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+// bazwad ay 7aga 3shan a3ml gradlew clean
 class MainActivity : ComponentActivity() {
 
     private lateinit var db: GroceryDatabase
