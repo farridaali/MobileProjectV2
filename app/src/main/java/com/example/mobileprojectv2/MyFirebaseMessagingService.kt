@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.mobileprojectv2.R.drawable.ic_stat_name
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -15,9 +16,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
+        // el token ely b7tho 3ala el firebase console
         Log.d("FCM", "New token: $token")
 
-        // Save token to SharedPreferences or send to your server
+        // bensave hena el token fel memory
         getSharedPreferences("FCM", Context.MODE_PRIVATE)
             .edit()
             .putString("token", token)
@@ -29,14 +31,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d("FCM", "From: ${message.from}")
 
-        // Check if message contains a notification payload
+        // bat2akd el notification ely mab3ota men el firebase console fyha data
         message.notification?.let {
             val title = it.title ?: "Grocery Reminder"
             val body = it.body ?: "Don't forget to buy your items!"
             sendNotification(title, body)
         }
 
-        // Check if message contains a data payload
+        //  bat2akd el notification ely mab3ota men el firebase console fyha data paylod
         if (message.data.isNotEmpty()) {
             Log.d("FCM", "Message data payload: ${message.data}")
             handleDataPayload(message.data)
@@ -51,6 +53,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         sendNotification(title, body, itemId)
     }
 
+    // nafs fekrt el reminder bt3na
     private fun sendNotification(title: String, messageBody: String, itemId: Int? = null) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -66,7 +69,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val channelId = "grocery_reminders"
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(ic_stat_name)
             .setContentTitle(title)
             .setContentText(messageBody)
             .setAutoCancel(true)
@@ -76,7 +79,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Create notification channel for Android O and above
+        // b3ml channel 3shan b3t el message nafs el reminder bt3na
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,

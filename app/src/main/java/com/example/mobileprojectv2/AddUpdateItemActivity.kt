@@ -1,4 +1,5 @@
 package com.example.mobileprojectv2
+
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -15,14 +16,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.example.mobileprojectv2.ui.theme.MobileProjectV2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
 
 class AddUpdateItemActivity : ComponentActivity() {
 
@@ -36,7 +38,7 @@ class AddUpdateItemActivity : ComponentActivity() {
 
         setContent {
             MobileProjectV2Theme {
-                AddUpdateItemScreen(db, itemId ,{ finish() })
+                AddUpdateItemScreen(db, itemId, { finish() })
             }
         }
     }
@@ -49,17 +51,20 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
     var quantity by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val activity = context as ComponentActivity
     val isUpdateMode = itemId != -1
 
+    //7etet el edit hy-load el info bt3t el item 3shan ne3ml 3ala edit
     LaunchedEffect(itemId) {
         if (isUpdateMode) {
-            scope.launch(Dispatchers.IO) {
+            activity.lifecycleScope.launch(Dispatchers.IO) {
                 val item = db.GroceryDao().getItemById(itemId)
-                name = item.name
-                quantity = item.quantity.toString()
-                price = item.price.toString()
+                launch(Dispatchers.Main) {
+                    name = item.name
+                    quantity = item.quantity.toString()
+                    price = item.price.toString()
+                }
             }
         }
     }
@@ -108,7 +113,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Header Icon
+            // Dah el plus icon ely fo2 input
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -129,7 +134,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Name Field
+            // dah el name field ely ben7ot fy el esm el item
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -156,7 +161,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                 singleLine = true
             )
 
-            // Quantity Field
+            // dah el qty field ely ben7ot fy 3aded el items ely hanshtryha
             OutlinedTextField(
                 value = quantity,
                 onValueChange = { quantity = it },
@@ -180,7 +185,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                 singleLine = true
             )
 
-            // Price Field
+            // dah el price field ely ben7ot fy el se3r
             OutlinedTextField(
                 value = price,
                 onValueChange = { price = it },
@@ -204,7 +209,7 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                 singleLine = true
             )
 
-            // Total Preview
+            // 7atet el total ely betzhar fel a5r b3d mabn7ot el info bt3t el item
             if (quantity.isNotEmpty() && price.isNotEmpty()) {
                 val qty = quantity.toIntOrNull() ?: 0
                 val prc = price.toDoubleOrNull() ?: 0.0
@@ -242,12 +247,14 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Save Button
+            // zorar el add item ely byzahr ta7t b3d maben7ot el info
             Button(
                 onClick = {
+
                     val qty = quantity.toIntOrNull()
                     val prc = price.toDoubleOrNull()
-                    if (qty == null || prc == null || name.isEmpty()) {
+
+                    if (name.isEmpty() || qty == null || prc == null) {
                         Toast.makeText(
                             context,
                             "Please enter valid values",
@@ -259,26 +266,33 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                     if (isLoading) return@Button
 
                     isLoading = true
-                    scope.launch(Dispatchers.IO) {
+                    activity.lifecycleScope.launch(Dispatchers.IO) {
                         try {
                             if (itemId == -1) {
-                                db.GroceryDao().insertItem(
-                                    ItemEntity(name = name, quantity = qty, price = prc)
+                                // Add new item
+                                val newItem = ItemEntity(
+                                    name = name,
+                                    quantity = qty,
+                                    price = prc
                                 )
+                                db.GroceryDao().insertItem(newItem)
                             } else {
-                                val updatedItem = db.GroceryDao().getItemById(itemId)
-                                    .copy(quantity = qty, price = prc)
+
+                                val existingItem = db.GroceryDao().getItemById(itemId)
+                                val updatedItem = existingItem.copy(
+                                    quantity = qty,
+                                    price = prc
+                                )
                                 db.GroceryDao().updateItem(updatedItem)
                             }
-                            // Small delay to ensure database write is complete
-                            //kotlinx.coroutines.delay(100)
 
                             launch(Dispatchers.Main) {
-                                Toast.makeText(
-                                    context,
-                                    if (isUpdateMode) "Item updated successfully" else "Item added successfully",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                val message = if (isUpdateMode) {
+                                    "Item updated successfully"
+                                } else {
+                                    "Item added successfully"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                 isLoading = false
                                 onComplete()
                             }
@@ -312,30 +326,23 @@ fun AddUpdateItemScreen(db: GroceryDatabase, itemId: Int, onComplete: () -> Unit
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-//                    if (isLoading) {
-//                        CircularProgressIndicator(
-//                            color = Color.White,
-//                            modifier = Modifier.size(24.dp)
-//                        )
-//                    } else {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isUpdateMode) Icons.Default.Check else Icons.Default.Add,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                if (isUpdateMode) "Update Item" else "Add Item",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isUpdateMode) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = null,
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (isUpdateMode) "Update Item" else "Add Item",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

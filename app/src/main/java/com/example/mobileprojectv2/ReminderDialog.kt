@@ -9,7 +9,6 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,7 +38,7 @@ fun ReminderDialog(
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
 
-    // Permission launcher for notifications (Android 13+)
+    // 7etet eny b3ml request permission men el os eny ab3t notification
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -52,20 +51,21 @@ fun ReminderDialog(
         }
     }
 
-    // Check and request notification permission
+    //  bat2akd el awl ana 3ndy el permission wala la2
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED -> {
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
 
+    // shakl el reminder tab lama bados 3ala el reminder icon ely mawgood fel item card
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -96,7 +96,7 @@ fun ReminderDialog(
                     color = Color(0xFF6b7280)
                 )
 
-                // Date and Time Picker Button
+                // dah el button b5tar men el date wel time ely 3ayzhom
                 OutlinedButton(
                     onClick = {
                         showDateTimePicker(context) { calendar ->
@@ -113,13 +113,16 @@ fun ReminderDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        selectedDateTime?.let { dateFormat.format(it.time) }
-                            ?: "Select Date & Time",
+                        if (selectedDateTime != null) {
+                            dateFormat.format(selectedDateTime!!.time)
+                        } else {
+                            "Select Date & Time"
+                        },
                         color = Color(0xFF1f2937)
                     )
                 }
 
-                // Quick reminder options
+                // lawo el user msh 3ayz 7aga custom 3amlo three options y5tar menhom b3d sa3a, bokra, fel weekend
                 Text(
                     "Quick Options:",
                     fontSize = 14.sp,
@@ -127,35 +130,39 @@ fun ReminderDialog(
                     color = Color(0xFF6b7280)
                 )
 
+                // styling el three options
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     QuickReminderOption(
                         text = "1 hour from now",
                         onClick = {
-                            selectedDateTime = Calendar.getInstance().apply {
-                                add(Calendar.HOUR_OF_DAY, 1)
-                            }
+                            val calendar = Calendar.getInstance()
+                            calendar.add(Calendar.HOUR_OF_DAY, 1)
+                            selectedDateTime = calendar
                         }
                     )
+
                     QuickReminderOption(
                         text = "Tomorrow at 9 AM",
                         onClick = {
-                            selectedDateTime = Calendar.getInstance().apply {
-                                add(Calendar.DAY_OF_MONTH, 1)
-                                set(Calendar.HOUR_OF_DAY, 9)
-                                set(Calendar.MINUTE, 0)
-                            }
+                            val calendar = Calendar.getInstance()
+                            calendar.add(Calendar.DAY_OF_MONTH, 1)
+                            calendar.set(Calendar.HOUR_OF_DAY, 9)
+                            calendar.set(Calendar.MINUTE, 0)
+                            selectedDateTime = calendar
                         }
                     )
+
                     QuickReminderOption(
                         text = "This weekend",
                         onClick = {
-                            selectedDateTime = Calendar.getInstance().apply {
-                                while (get(Calendar.DAY_OF_WEEK) != Calendar.SATURDAY) {
-                                    add(Calendar.DAY_OF_MONTH, 1)
-                                }
-                                set(Calendar.HOUR_OF_DAY, 10)
-                                set(Calendar.MINUTE, 0)
+                            val calendar = Calendar.getInstance()
+                            // Keep adding days until we reach Saturday
+                            while (calendar.get(Calendar.DAY_OF_WEEK) != Calendar.SATURDAY) {
+                                calendar.add(Calendar.DAY_OF_MONTH, 1)
                             }
+                            calendar.set(Calendar.HOUR_OF_DAY, 10)
+                            calendar.set(Calendar.MINUTE, 0)
+                            selectedDateTime = calendar
                         }
                     )
                 }
@@ -164,15 +171,16 @@ fun ReminderDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    selectedDateTime?.let { calendar ->
-                        scheduleReminder(context, item, calendar)
+                    if (selectedDateTime != null) {
+                        scheduleReminder(context, item, selectedDateTime!!)
+                        val formattedDate = dateFormat.format(selectedDateTime!!.time)
                         Toast.makeText(
                             context,
-                            "Reminder set for ${dateFormat.format(calendar.time)}",
+                            "Reminder set for $formattedDate",
                             Toast.LENGTH_SHORT
                         ).show()
                         onDismiss()
-                    } ?: run {
+                    } else {
                         Toast.makeText(
                             context,
                             "Please select a date and time",
@@ -230,19 +238,24 @@ fun QuickReminderOption(text: String, onClick: () -> Unit) {
     }
 }
 
-private fun showDateTimePicker(context: Context, onDateTimeSelected: (Calendar) -> Unit) {
+// el 7eta el banwary fyha el calender wel clock ely ben5tar men el date and time
+fun showDateTimePicker(context: Context, onDateTimeSelected: (Calendar) -> Unit) {
     val calendar = Calendar.getInstance()
 
-    DatePickerDialog(
+    // 7etet el calender
+    val datePickerDialog = DatePickerDialog(
         context,
         { _, year, month, dayOfMonth ->
+            // Set the selected date
             calendar.set(Calendar.YEAR, year)
             calendar.set(Calendar.MONTH, month)
             calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
-            TimePickerDialog(
+            // 7etet el clock
+            val timePickerDialog = TimePickerDialog(
                 context,
                 { _, hourOfDay, minute ->
+                    // ben5tar el time ely ana 3ayzo
                     calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
                     calendar.set(Calendar.MINUTE, minute)
                     calendar.set(Calendar.SECOND, 0)
@@ -251,34 +264,45 @@ private fun showDateTimePicker(context: Context, onDateTimeSelected: (Calendar) 
                 calendar.get(Calendar.HOUR_OF_DAY),
                 calendar.get(Calendar.MINUTE),
                 false
-            ).show()
+            )
+            timePickerDialog.show()
         },
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH),
         calendar.get(Calendar.DAY_OF_MONTH)
-    ).apply {
-        datePicker.minDate = System.currentTimeMillis()
-    }.show()
+    )
+
+    // hena msh b5ly el user y5tar date adym 3n el mawgood fel os
+    datePickerDialog.datePicker.minDate = System.currentTimeMillis()
+    datePickerDialog.show()
 }
 
-private fun scheduleReminder(context: Context, item: ItemEntity, calendar: Calendar) {
-    val delay = calendar.timeInMillis - System.currentTimeMillis()
+// hena b2a best5dm el notification manager 3shan a-schedule el notificaton
+fun scheduleReminder(context: Context, item: ItemEntity, calendar: Calendar) {
+    // hena b5od el time ely el user e5tar we b7sab delay 3ala ases 3shan lama y5las el delay ab3t el message
+    val currentTime = System.currentTimeMillis()
+    val selectedTime = calendar.timeInMillis
+    val delay = selectedTime - currentTime
 
+    // bab3tlo warning 3shan ye5tar future date/time
     if (delay <= 0) {
         Toast.makeText(context, "Please select a future date and time", Toast.LENGTH_SHORT).show()
         return
     }
 
+    // el data el hanb3tha el le notification worker
     val data = Data.Builder()
         .putString("item_name", item.name)
         .putInt("item_id", item.id)
         .build()
 
-    val reminderWork = OneTimeWorkRequestBuilder<ReminderWorker>()
+    // ben3ml request lel notification
+    val reminderWork = OneTimeWorkRequestBuilder<Reminder>()
         .setInitialDelay(delay, TimeUnit.MILLISECONDS)
         .setInputData(data)
         .addTag("reminder_${item.id}")
         .build()
 
+    // ben schedule el notification
     WorkManager.getInstance(context).enqueue(reminderWork)
 }

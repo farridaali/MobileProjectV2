@@ -5,8 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.example.mobileprojectv2.ui.theme.MobileProjectV2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,6 +35,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private lateinit var db: GroceryDatabase
+    private var refreshTrigger = mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,57 +44,66 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MobileProjectV2Theme {
-                GroceryListScreen(db)
+                GroceryListScreen(db, refreshTrigger)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // ben5aly ye-refresh bel 3afya
+        refreshTrigger.value = refreshTrigger.value + 1
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroceryListScreen(db: GroceryDatabase) {
+fun GroceryListScreen(db: GroceryDatabase, refreshTrigger: MutableState<Int>) {
     var itemsList by remember { mutableStateOf(listOf<ItemEntity>()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ItemEntity?>(null) }
     var showReminderDialog by remember { mutableStateOf(false) }
     var itemForReminder by remember { mutableStateOf<ItemEntity?>(null) }
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val activity = context as ComponentActivity
 
-    // Load items from DB
-    fun refreshItems() {
-        scope.launch(Dispatchers.IO) {
-            itemsList = db.GroceryDao().getAllItems()
+    // el gozy2a el bengeeb el data men el database
+    fun loadItems() {
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            val items = db.GroceryDao().getAllItems()
+            launch(Dispatchers.Main) {
+                itemsList = items
+            }
         }
     }
 
-    // Refresh items when screen becomes visible
-    LaunchedEffect(Unit) {
-        refreshItems()
+    // ben5aly ye-refresh bel 3afya tany
+    LaunchedEffect(refreshTrigger.value) {
+        loadItems()
     }
 
-    // Add lifecycle observer to refresh when returning to this screen
-//    DisposableEffect(Unit) {
-//        val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
-//            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-//                refreshItems()
-//            }
-//        }
-//
-//        val lifecycle = (context as ComponentActivity).lifecycle
-//        lifecycle.addObserver(lifecycleObserver)
-//
-//        onDispose {
-//            lifecycle.removeObserver(lifecycleObserver)
-//        }
-//    }
+    //dah logic el total cost
+    var totalCost = 0.0
+    for (item in itemsList) {
+        totalCost += item.quantity * item.price
+    }
 
-    // Calculate totals
-    val totalCost = calculateTotalCost(itemsList)
-    val remainingCost = itemsList.filter { !it.isBought }.sumOf { it.quantity * it.price }
-    val boughtCount = itemsList.count { it.isBought }
+    // dah logic el items ely lesa mashtrynahash
+    var remainingCost = 0.0
+    for (item in itemsList) {
+        if (!item.isBought) {
+            remainingCost += item.quantity * item.price
+        }
+    }
 
-    // Gradient background
+    // 7etet kam item eshtrana
+    var boughtCount = 0
+    for (item in itemsList) {
+        if (item.isBought) {
+            boughtCount++
+        }
+    }
+
     val gradientColors = listOf(
         Color(0xFF667eea),
         Color(0xFF764ba2)
@@ -131,9 +140,8 @@ fun GroceryListScreen(db: GroceryDatabase) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    context.startActivity(
-                        Intent(context, AddUpdateItemActivity::class.java)
-                    )
+                    val intent = Intent(context, AddUpdateItemActivity::class.java)
+                    context.startActivity(intent)
                 },
                 containerColor = Color(0xFF667eea),
                 contentColor = Color.White,
@@ -155,14 +163,14 @@ fun GroceryListScreen(db: GroceryDatabase) {
                     .fillMaxSize()
                     .background(Color(0xFFF5F7FA))
             ) {
-                // Summary Cards
+                // el row ely fy el total cost we el remaining cost
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Total Cost Card
+                    // 7etet el total cost
                     SummaryCard(
                         title = "Total Cost",
                         value = "$totalCost EGP",
@@ -171,7 +179,7 @@ fun GroceryListScreen(db: GroceryDatabase) {
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Remaining Cost Card
+                    // 7etet el remaining cost
                     SummaryCard(
                         title = "Remaining",
                         value = "$remainingCost EGP",
@@ -181,7 +189,7 @@ fun GroceryListScreen(db: GroceryDatabase) {
                     )
                 }
 
-                // Items List
+                // hena benwary ya2ma empty state y3ny mafysh item ya2ma el items bt3tna
                 if (itemsList.isEmpty()) {
                     EmptyStateView()
                 } else {
@@ -199,10 +207,10 @@ fun GroceryListScreen(db: GroceryDatabase) {
                                     context.startActivity(intent)
                                 },
                                 onCheckedChange = { isChecked ->
-                                    scope.launch(Dispatchers.IO) {
+                                    activity.lifecycleScope.launch(Dispatchers.IO) {
                                         val updatedItem = item.copy(isBought = isChecked)
                                         db.GroceryDao().updateItem(updatedItem)
-                                        refreshItems()
+                                        loadItems()
                                     }
                                 },
                                 onDeleteClick = {
@@ -221,7 +229,7 @@ fun GroceryListScreen(db: GroceryDatabase) {
         }
     )
 
-    // Delete Confirmation Dialog
+    // 7etet mas7a el item men 3ala wagh el ard
     if (showDeleteDialog && itemToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -230,9 +238,11 @@ fun GroceryListScreen(db: GroceryDatabase) {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        scope.launch(Dispatchers.IO) {
-                            itemToDelete?.let { db.GroceryDao().deleteItem(it) }
-                            refreshItems()
+                        activity.lifecycleScope.launch(Dispatchers.IO) {
+                            if (itemToDelete != null) {
+                                db.GroceryDao().deleteItem(itemToDelete!!)
+                            }
+                            loadItems()
                         }
                         showDeleteDialog = false
                     },
@@ -251,7 +261,7 @@ fun GroceryListScreen(db: GroceryDatabase) {
         )
     }
 
-    // Reminder Dialog
+    // 7etet gebt el laban wala la2 (reminder)
     if (showReminderDialog && itemForReminder != null) {
         ReminderDialog(
             item = itemForReminder!!,
@@ -260,6 +270,7 @@ fun GroceryListScreen(db: GroceryDatabase) {
     }
 }
 
+// dy cards el total wel remaining
 @Composable
 fun SummaryCard(
     title: String,
@@ -307,12 +318,12 @@ fun SummaryCard(
                     color = Color(0xFF1f2937),
                     fontWeight = FontWeight.Bold
                 )
-
             }
         }
     }
 }
 
+// dah el item card ely fy kol 7aga men el reminder lel delete wel check box
 @Composable
 fun GroceryItemCard(
     item: ItemEntity,
@@ -328,7 +339,7 @@ fun GroceryItemCard(
             .fillMaxWidth()
             .shadow(2.dp, RoundedCornerShape(16.dp))
             .clickable(onClick = onItemClick),
-            colors = CardDefaults.cardColors(
+        colors = CardDefaults.cardColors(
             containerColor = if (item.isBought) Color(0xFFF0FDF4) else Color.White
         )
     ) {
@@ -339,7 +350,7 @@ fun GroceryItemCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Checkbox
+            //7etet el check box
             Checkbox(
                 checked = item.isBought,
                 onCheckedChange = onCheckedChange,
@@ -349,7 +360,7 @@ fun GroceryItemCard(
                 )
             )
 
-            // Item Details
+            // 7etet el name wel price wel qty
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -386,12 +397,12 @@ fun GroceryItemCard(
                 )
             }
 
-            // Action Buttons
+            // buttons ely 3al gamb ely heya el delete wel reminder
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Reminder Button
+                // gebt el laban wla la2 (reminder)
                 IconButton(
                     onClick = onReminderClick,
                     modifier = Modifier
@@ -407,7 +418,7 @@ fun GroceryItemCard(
                     )
                 }
 
-                // Delete Button
+                // mas7o men 3ala wagh el koun (delete)
                 IconButton(
                     onClick = onDeleteClick,
                     modifier = Modifier
@@ -427,6 +438,7 @@ fun GroceryItemCard(
     }
 }
 
+//styling ely ben7ot fy el price wel qty
 @Composable
 fun Chip(text: String, backgroundColor: Color, textColor: Color) {
     Box(
@@ -444,6 +456,8 @@ fun Chip(text: String, backgroundColor: Color, textColor: Color) {
     }
 }
 
+
+//el far8 ely 3amlyno (empty state)
 @Composable
 fun EmptyStateView() {
     Column(
